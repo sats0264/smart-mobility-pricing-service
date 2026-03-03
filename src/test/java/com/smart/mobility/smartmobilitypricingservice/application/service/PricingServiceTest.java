@@ -1,10 +1,14 @@
 package com.smart.mobility.smartmobilitypricingservice.application.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.smart.mobility.smartmobilitypricingservice.dto.UserMobilitySummaryDTO;
+import com.smart.mobility.smartmobilitypricingservice.dto.PricingContextDTO;
+import com.smart.mobility.smartmobilitypricingservice.dto.SubscriptionContextDTO;
+import com.smart.mobility.smartmobilitypricingservice.enums.TransportType;
 import com.smart.mobility.smartmobilitypricingservice.model.PricingResult;
 import com.smart.mobility.smartmobilitypricingservice.dto.TripCompletedEvent;
 import com.smart.mobility.smartmobilitypricingservice.dto.TripPricedEvent;
+import com.smart.mobility.smartmobilitypricingservice.model.FareSection;
+import com.smart.mobility.smartmobilitypricingservice.repository.FareSectionRepository;
 import com.smart.mobility.smartmobilitypricingservice.repository.PricingResultRepository;
 import com.smart.mobility.smartmobilitypricingservice.proxy.UserServiceClient;
 import com.smart.mobility.smartmobilitypricingservice.messaging.PricingEventPublisher;
@@ -19,6 +23,8 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.Collections;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
@@ -28,6 +34,9 @@ class PricingServiceTest {
 
         @Mock
         private PricingResultRepository pricingResultRepository;
+
+        @Mock
+        private FareSectionRepository fareSectionRepository;
 
         @Mock
         private UserServiceClient userServiceClient;
@@ -56,18 +65,22 @@ class PricingServiceTest {
                                 .tripId(101L)
                                 .userId("user-123")
                                 .transportType("BUS")
-                                .numberOfSections(3) // 150 + (3 * 50) = 300
+                                .transportLineId(1L)
+                                .startLocation("A")
+                                .endLocation("D") // 3 sections distance (0 to 3)
                                 .build();
 
-                UserMobilitySummaryDTO summary = UserMobilitySummaryDTO.builder()
-                                .keycloakId("user-123")
+                FareSection s1 = FareSection.builder().lineId(1L).stationName("A").sectionOrder(0).build();
+                FareSection s2 = FareSection.builder().lineId(1L).stationName("D").sectionOrder(3).build();
+                when(fareSectionRepository.findByLineIdOrderBySectionOrderAsc(1L)).thenReturn(List.of(s1, s2));
+
+                PricingContextDTO context = PricingContextDTO.builder()
                                 .hasActivePass(true)
-                                .dailyCap(25.0)
-                                .currentSpent(10.0)
-                                .activeDiscountRate(0.0)
+                                .dailyCapAmount(2500.0)
+                                .activeSubscriptions(Collections.emptyList())
                                 .build();
 
-                when(userServiceClient.getUserSummary("user-123")).thenReturn(summary);
+                when(userServiceClient.getPricingContext("user-123")).thenReturn(context);
 
                 pricingService.calculateAndProcessTrip(event);
 
@@ -87,32 +100,26 @@ class PricingServiceTest {
                                 .tripId(102L)
                                 .userId("user-456")
                                 .transportType("TER")
-                                .numberOfSections(2) // 500 + (2 * 500) = 1500
+                                .transportLineId(2L)
+                                .startLocation("X")
+                                .endLocation("Z") // 2 sections distance (0 to 2)
                                 .build();
 
-                UserMobilitySummaryDTO summary = UserMobilitySummaryDTO.builder()
-                                .keycloakId("user-456")
+                FareSection s1 = FareSection.builder().lineId(2L).stationName("X").sectionOrder(0).build();
+                FareSection s2 = FareSection.builder().lineId(2L).stationName("Z").sectionOrder(2).build();
+                when(fareSectionRepository.findByLineIdOrderBySectionOrderAsc(2L)).thenReturn(List.of(s1, s2));
+
+                PricingContextDTO context = PricingContextDTO.builder()
                                 .hasActivePass(true)
-                                .dailyCap(25.0)
-                                .currentSpent(20.0) // 5.0 remaining
-                                .activeDiscountRate(0.2) // 20% discount
+                                .dailyCapAmount(2500.0)
+                                .activeSubscriptions(List.of(
+                                                SubscriptionContextDTO.builder()
+                                                                .applicableTransport(TransportType.TER)
+                                                                .discountPercentage(20.0)
+                                                                .build()))
                                 .build();
 
-                when(userServiceClient.getUserSummary("user-456")).thenReturn(summary);
-
-                // Base 1500
-                // After 20% discount: 1500 - 300 = 1200
-                // Hitting cap: remaining is 5.0 (assuming the unit is the same,
-                // but let's assume Pricing uses small units or we need to align)
-                // Actually the user examples use 2500 for 25.00€ if they use cents,
-                // but my code uses summary.getDailyCap() which is Double.
-                // If summary.getDailyCap() is 25.0, and event basePrice is 1500 (cents?), we
-                // have a mismatch.
-                // Let's assume everything is in the same unit. If base price is 1500, daily cap
-                // should be 2500.
-
-                summary.setDailyCap(2500.0);
-                summary.setCurrentSpent(2000.0); // 500 remaining
+                when(userServiceClient.getPricingContext("user-456")).thenReturn(context);
 
                 pricingService.calculateAndProcessTrip(event);
 
