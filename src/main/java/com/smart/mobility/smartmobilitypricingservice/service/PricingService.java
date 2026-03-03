@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smart.mobility.smartmobilitypricingservice.dto.*;
 import com.smart.mobility.smartmobilitypricingservice.model.DiscountRule;
 import com.smart.mobility.smartmobilitypricingservice.model.PricingResult;
+import com.smart.mobility.smartmobilitypricingservice.proxy.AccountServiceClient;
 import com.smart.mobility.smartmobilitypricingservice.repository.DiscountRuleRepository;
 import com.smart.mobility.smartmobilitypricingservice.repository.PricingResultRepository;
 import com.smart.mobility.smartmobilitypricingservice.proxy.UserServiceClient;
@@ -27,6 +28,10 @@ public class PricingService {
     private final DiscountRuleRepository discountRuleRepository;
     private final PricingResultRepository pricingResultRepository;
     private final UserServiceClient userServiceClient;
+
+    // Client pour la communication inter-services (Billing Service)
+    private final AccountServiceClient accountServiceClient;
+
     private final PricingEventPublisher pricingEventPublisher;
     private final ObjectMapper objectMapper;
 
@@ -39,6 +44,9 @@ public class PricingService {
         UserMobilitySummaryDTO summary = fetchUserSummary(event.userId());
 
         // 2. Calcul du tarif de base Dakar (BUS, TER, BRT)
+        // 1b. Récupération du daily spent
+        Double dailySpent = accountServiceClient.getDailySpent(event.userId()).getDailySpent();
+
         BigDecimal basePrice = calculateBasePrice(event);
 
         // 3. Application des réductions en chaîne
