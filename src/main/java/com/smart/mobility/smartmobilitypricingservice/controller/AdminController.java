@@ -83,6 +83,7 @@ public class AdminController {
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
+
     // --- Zone ---
     @PostMapping("/zones")
     public ResponseEntity<Zone> createZone(@RequestBody Zone zone) {
@@ -123,6 +124,10 @@ public class AdminController {
                     existingRule.setStartHour(discountRule.getStartHour());
                     existingRule.setEndHour(discountRule.getEndHour());
                     existingRule.setActive(discountRule.getActive());
+                    existingRule.setStartDay(discountRule.getStartDay());
+                    existingRule.setEndDay(discountRule.getEndDay());
+                    existingRule.setStartDate(discountRule.getStartDate());
+                    existingRule.setEndDate(discountRule.getEndDate());
                     return ResponseEntity.ok(discountRuleRepository.save(existingRule));
                 })
                 .orElse(ResponseEntity.notFound().build());
