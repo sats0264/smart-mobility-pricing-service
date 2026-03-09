@@ -11,5 +11,6 @@ public record TripPricedEvent(
         BigDecimal basePrice,
         List<AppliedDiscountDto> appliedDiscounts,
         BigDecimal finalAmount,
-        boolean penalty) {
+        boolean penalty,
+        boolean countTowardsDailyCap) {
 }

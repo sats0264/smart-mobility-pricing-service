@@ -1,6 +1,7 @@
 package com.smart.mobility.smartmobilitypricingservice.application.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smart.mobility.smartmobilitypricingservice.dto.DailySpentResponse;
 import com.smart.mobility.smartmobilitypricingservice.dto.PricingContextDTO;
 import com.smart.mobility.smartmobilitypricingservice.dto.SubscriptionContextDTO;
 import com.smart.mobility.smartmobilitypricingservice.enums.TransportType;
@@ -8,8 +9,10 @@ import com.smart.mobility.smartmobilitypricingservice.model.PricingResult;
 import com.smart.mobility.smartmobilitypricingservice.dto.TripCompletedEvent;
 import com.smart.mobility.smartmobilitypricingservice.dto.TripPricedEvent;
 import com.smart.mobility.smartmobilitypricingservice.model.FareSection;
+import com.smart.mobility.smartmobilitypricingservice.repository.DiscountRuleRepository;
 import com.smart.mobility.smartmobilitypricingservice.repository.FareSectionRepository;
 import com.smart.mobility.smartmobilitypricingservice.repository.PricingResultRepository;
+import com.smart.mobility.smartmobilitypricingservice.proxy.AccountServiceClient;
 import com.smart.mobility.smartmobilitypricingservice.proxy.UserServiceClient;
 import com.smart.mobility.smartmobilitypricingservice.messaging.PricingEventPublisher;
 import com.smart.mobility.smartmobilitypricingservice.service.PricingService;
@@ -39,7 +42,13 @@ class PricingServiceTest {
         private FareSectionRepository fareSectionRepository;
 
         @Mock
+        private DiscountRuleRepository discountRuleRepository;
+
+        @Mock
         private UserServiceClient userServiceClient;
+
+        @Mock
+        private AccountServiceClient accountServiceClient;
 
         @Mock
         private PricingEventPublisher pricingEventPublisher;
@@ -57,6 +66,10 @@ class PricingServiceTest {
                         result.setId(1L);
                         return result;
                 });
+                // Stub daily spent to avoid NPEs and simulate zero spent by default
+                lenient().when(accountServiceClient.getDailySpent(anyString())).thenReturn(new DailySpentResponse("user", 0.0));
+                // By default no discount rules
+                lenient().when(discountRuleRepository.findByActiveTrueOrderByPriorityAsc()).thenReturn(Collections.emptyList());
         }
 
         @Test

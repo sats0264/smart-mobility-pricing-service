@@ -76,10 +76,10 @@ public class PricingService {
         if (penalty) {
             // Apply Penalty (Strategy 1)
             basePrice = switch (event.transportType().toUpperCase()) {
-                case "BUS" -> BigDecimal.valueOf(500);
                 case "BRT" -> BigDecimal.valueOf(1000);
                 case "TER" -> BigDecimal.valueOf(2500);
-                default -> BigDecimal.valueOf(500);
+                // For BUS, we apply a fixed penalty fare instead of calculating based on sections, to ensure deterrence
+                default -> BigDecimal.valueOf(600);
             };
             appliedDiscounts.add(AppliedDiscountDto.builder()
                     .ruleType("PENALTY_MISMATCH")
@@ -388,10 +388,13 @@ public class PricingService {
      */
     private void publishTripPricedEvent(TripCompletedEvent event, BigDecimal base, BigDecimal fin,
             List<AppliedDiscountDto> list, boolean penalty) {
+        boolean countTowardsDailyCap = !penalty; // Les pénalités ne doivent pas être comptées dans le daily cap
         TripPricedEvent pricedEvent = TripPricedEvent.builder()
                 .tripId(event.tripId()).userId(event.userId())
                 .basePrice(base).appliedDiscounts(list).finalAmount(fin)
-                .penalty(penalty).build();
+                .penalty(penalty)
+                .countTowardsDailyCap(countTowardsDailyCap)
+                .build();
         pricingEventPublisher.publishTripPricedEvent(pricedEvent);
     }
 }
